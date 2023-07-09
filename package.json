@@ -1,0 +1,12 @@
+{
+  "name": "hardhat-lottery-smartcontract-sat",
+  "packageManager": "yarn@3.5.1",
+  "dependencies": {
+    "hardhat": "^2.16.1"
+  },
+  "devDependencies": {
+    "@chainlink/contracts": "^0.6.1",
+    "prettier": "^3.0.0",
+    "prettier-plugin-solidity": "^1.1.3"
+  }
+}
