@@ -18,25 +18,40 @@ const deployRaffle: DeployFunction = async ({
   let vrfCoordinatorV2Address;
   let subsciptionId;
   if (developmentChains.includes(network.name)) {
-    const vrfCoordinatorV2Deployment: Deployment = await getContract('VRFCoordinatorV2Mock');
+    const vrfCoordinatorV2Deployment: Deployment = await getContract(
+      'VRFCoordinatorV2Mock',
+    );
     vrfCoordinatorV2Address = vrfCoordinatorV2Deployment.address;
-    const vrfCoordinatorV2Mock: VRFCoordinatorV2Mock = await ethers.getContractAt("VRFCoordinatorV2Mock", vrfCoordinatorV2Address);
+    const vrfCoordinatorV2Mock: VRFCoordinatorV2Mock = await ethers.getContractAt(
+      'VRFCoordinatorV2Mock',
+      vrfCoordinatorV2Address,
+    );
 
     const transactionResponse = await vrfCoordinatorV2Mock.createSubscription();
     const transactionReceipt = await transactionResponse.wait(1);
     // subsciptionId = BigInt(await transactionReceipt?.logs[0].topics[0] || '0');
     subsciptionId = 1;
-    await vrfCoordinatorV2Mock.fundSubscription(subsciptionId, VRF_SUBSCRIPTION_FUND_AMOUNT);
+    await vrfCoordinatorV2Mock.fundSubscription(
+      subsciptionId,
+      VRF_SUBSCRIPTION_FUND_AMOUNT,
+    );
   } else {
     vrfCoordinatorV2Address = networkConfig[chainId]['vrfCoordinatorV2'];
-    subsciptionId = networkConfig[chainId]["subscriptionId"];
+    subsciptionId = networkConfig[chainId]['subscriptionId'];
   }
 
   const entranceFee = networkConfig[chainId]['entranceFee'];
   const gasLane = networkConfig[chainId]['gasLane'];
   const callbackGasLimit = networkConfig[chainId]['callbackGasLimit'];
   const interval = networkConfig[chainId]['interval'];
-  const args: any[] = [vrfCoordinatorV2Address, entranceFee, gasLane, subsciptionId, callbackGasLimit, interval];
+  const args: any[] = [
+    vrfCoordinatorV2Address,
+    entranceFee,
+    gasLane,
+    subsciptionId,
+    callbackGasLimit,
+    interval,
+  ];
   const raffle = await deploy('Raffle', {
     from: deployer,
     args,
@@ -44,6 +59,16 @@ const deployRaffle: DeployFunction = async ({
     waitConfirmations: networkConfig[chainId]?.blockConfirmations || 1,
   });
   log(`Raffle deployed at ${raffle.address}`);
+
+  if (developmentChains.includes(network.name)) {
+    const vrfCoordinatorV2Mock: VRFCoordinatorV2Mock =
+      await ethers.getContractAt(
+        'VRFCoordinatorV2Mock',
+        vrfCoordinatorV2Address || '',
+      );
+    await vrfCoordinatorV2Mock.addConsumer(subsciptionId || '0', raffle.address);
+    log('Consumer is added');
+  }
 
   if (!developmentChains.includes(network.name)) {
     log('verifying the contract!');
