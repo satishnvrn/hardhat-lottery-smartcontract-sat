@@ -68,4 +68,72 @@ import { assert, expect } from 'chai';
           ).to.be.revertedWithCustomError(raffle, 'Raffle_NotOpen');
         });
       });
+
+      describe('checkUpKeep', async () => {
+        it("returns false if people haven't sent any ETH", async () => {
+          await network.provider.send('evm_increaseTime', [
+            Number(interval.toString()) + 1,
+          ]);
+          await network.provider.send('evm_mine');
+          const { upkeepNeeded } = await raffle.checkUpkeep.staticCall(
+            new Uint8Array(),
+          );
+          assert(!upkeepNeeded);
+        });
+
+        it("returns false if raffle isn't open", async () => {
+          await raffle.enterRaffle({ value: raffleEntranceFee });
+          await network.provider.send('evm_increaseTime', [
+            Number(interval.toString()) + 1,
+          ]);
+          await network.provider.send('evm_mine');
+          await raffle.performUpkeep(new Uint8Array());
+          const raffleState = await raffle.getRaffleState();
+          const { upkeepNeeded } = await raffle.checkUpkeep.staticCall(
+            new Uint8Array(),
+          );
+          assert.equal(raffleState.toString(), '1');
+          assert.equal(upkeepNeeded, false);
+        });
+      });
+
+      describe('performUpKeep', async () => {
+        it('it can only run if checkupkeep is true', async () => {
+          await raffle.enterRaffle({ value: raffleEntranceFee });
+          await network.provider.send('evm_increaseTime', [
+            Number(interval.toString()) + 1,
+          ]);
+          await network.provider.send('evm_mine', []);
+          const tx = await raffle.performUpkeep(new Uint8Array());
+          assert(tx);
+        });
+
+        it('reverts when checkupkeep is false', async () => {
+          await expect(
+            raffle.performUpkeep(new Uint8Array()),
+          ).to.be.revertedWithCustomError(raffle, 'Raffle_UpkeepNotNeeded');
+        });
+
+        it('updates the raffle state, emits an event, and calls the vrf coordinatior', async () => {
+          await raffle.enterRaffle({ value: raffleEntranceFee });
+          await network.provider.send('evm_increaseTime', [
+            Number(interval.toString()) + 1,
+          ]);
+          await network.provider.send('evm_mine', []);
+          const txResponse = await raffle.performUpkeep(new Uint8Array());
+          const txReceipt = await txResponse.wait(1);
+          const raffleDeployment = await deployments.get('Raffle');
+          const raffleInterface = new ethers.Interface(raffleDeployment.abi);
+          const parsedLogs = (txReceipt?.logs || []).map((log) => {
+            return raffleInterface.parseLog({
+              topics: [...log?.topics] || [],
+              data: log?.data || '',
+            });
+          });
+          const requestId: bigint = parsedLogs[1]?.args[0] || BigInt(0);
+          const raffleState = await raffle.getRaffleState();
+          assert(Number(requestId.toString()) > 0);
+          assert(Number(raffleState.toString()) == 1);
+        });
+      });
     });

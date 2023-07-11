@@ -22,15 +22,24 @@ const deployRaffle: DeployFunction = async ({
       'VRFCoordinatorV2Mock',
     );
     vrfCoordinatorV2Address = vrfCoordinatorV2Deployment.address;
-    const vrfCoordinatorV2Mock: VRFCoordinatorV2Mock = await ethers.getContractAt(
-      'VRFCoordinatorV2Mock',
-      vrfCoordinatorV2Address,
-    );
+    const vrfCoordinatorV2Mock: VRFCoordinatorV2Mock =
+      await ethers.getContractAt(
+        'VRFCoordinatorV2Mock',
+        vrfCoordinatorV2Address,
+      );
 
     const transactionResponse = await vrfCoordinatorV2Mock.createSubscription();
     const transactionReceipt = await transactionResponse.wait(1);
-    // subsciptionId = BigInt(await transactionReceipt?.logs[0].topics[0] || '0');
-    subsciptionId = 1;
+    const vrfCoordinatorV2Interface = new ethers.Interface(
+      vrfCoordinatorV2Deployment.abi,
+    );
+    const parsedLogs = (transactionReceipt?.logs || []).map((log) => {
+      return vrfCoordinatorV2Interface.parseLog({
+        topics: [...log?.topics] || [],
+        data: log?.data || '',
+      });
+    });
+    subsciptionId = parsedLogs[0]?.args?.[0] || BigInt(1);
     await vrfCoordinatorV2Mock.fundSubscription(
       subsciptionId,
       VRF_SUBSCRIPTION_FUND_AMOUNT,
@@ -66,7 +75,10 @@ const deployRaffle: DeployFunction = async ({
         'VRFCoordinatorV2Mock',
         vrfCoordinatorV2Address || '',
       );
-    await vrfCoordinatorV2Mock.addConsumer(subsciptionId || '0', raffle.address);
+    await vrfCoordinatorV2Mock.addConsumer(
+      subsciptionId || '0',
+      raffle.address,
+    );
     log('Consumer is added');
   }
 
