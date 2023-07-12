@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import '@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol';
 import '@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol';
-import '@chainlink/contracts/src/v0.8/AutomationCompatible.sol';
+import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 import "hardhat/console.sol";
 
 error Raffle_SendMoreETH();
@@ -16,7 +16,7 @@ error Raffle_UpkeepNotNeeded(uint256 currentBalance, uint256 numPlayers, uint256
  *  @notice This contract is for creating an untamperable decentralized smart contract
  *  @dev This implements chainlink VRF v2 and chainlink keepers
  */
-contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
+contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
   /* Type declarations */
   enum RaffleState {
     OPEN,

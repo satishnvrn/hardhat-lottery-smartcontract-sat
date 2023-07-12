@@ -30,11 +30,8 @@ const deployRaffle: DeployFunction = async ({
 
     const transactionResponse = await vrfCoordinatorV2Mock.createSubscription();
     const transactionReceipt = await transactionResponse.wait(1);
-    const vrfCoordinatorV2Interface = new ethers.Interface(
-      vrfCoordinatorV2Deployment.abi,
-    );
     const parsedLogs = (transactionReceipt?.logs || []).map((log) => {
-      return vrfCoordinatorV2Interface.parseLog({
+      return vrfCoordinatorV2Mock.interface.parseLog({
         topics: [...log?.topics] || [],
         data: log?.data || '',
       });

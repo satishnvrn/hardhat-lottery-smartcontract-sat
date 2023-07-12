@@ -136,4 +136,88 @@ import { assert, expect } from 'chai';
           assert(Number(raffleState.toString()) == 1);
         });
       });
+
+      describe('fullfillRandomWords', async () => {
+        beforeEach(async () => {
+          await raffle.enterRaffle({ value: raffleEntranceFee });
+          await network.provider.send('evm_increaseTime', [
+            Number(interval.toString()) + 1,
+          ]);
+          await network.provider.send('evm_mine', []);
+        });
+
+        it('can only be called after performUpKeep', async () => {
+          const raffleAddress = await raffle.getAddress();
+          await expect(
+            vrfCoordinatorV2Mock.fulfillRandomWords(0, raffleAddress),
+          ).to.be.rejectedWith('nonexistent request');
+          await expect(
+            vrfCoordinatorV2Mock.fulfillRandomWords(1, raffleAddress),
+          ).to.be.rejectedWith('nonexistent request');
+        });
+
+        it('picks a winner, resets the lottery, and sends money', async () => {
+          const additionalEntrance = 3;
+          const startingAccountIndex = 1;
+          const accounts = await ethers.getSigners();
+          for (
+            let i = startingAccountIndex;
+            i < startingAccountIndex + additionalEntrance;
+            i++
+          ) {
+            const accountConnectedRaffle = raffle.connect(accounts[i]);
+            await accountConnectedRaffle.enterRaffle({
+              value: raffleEntranceFee,
+            });
+          }
+          const startingTimeStamp = await raffle.getLatestTimeStamp();
+
+          await new Promise<void>(async (resolve, reject) => {
+            const winnerEvent = raffle.getEvent("WinnerPicked");
+            console.log('winnerEvent', winnerEvent);
+            raffle.once(winnerEvent, async () => {
+              console.log('found the event');
+              try {
+                // wait for the winner to get picked.
+                const recentWinner = await raffle.getRecentWinner();
+                console.log('recentWinner', recentWinner);
+                const raffleState = await raffle.getRaffleState();
+                const endingTimeStamp = await raffle.getLatestTimeStamp();
+                const numberOfPlayers = await raffle.getNumberOfPlayers();
+
+                assert(numberOfPlayers.toString(), '0');
+                assert.equal(raffleState.toString(), '0');
+                assert(endingTimeStamp > startingTimeStamp);
+                resolve();
+              } catch (error) {
+                reject(error);
+              }
+            });
+
+            // call raffle.performupkeep and then call vrfCoordinator.fulfillRandomWords with the requestId from the event of the first transaction.
+            const txResponse = await raffle.performUpkeep(new Uint8Array());
+            const txReceipt = await txResponse.wait(1);
+            console.log('raffle performupkeep transaction mined');
+            const raffleAddress = await raffle.getAddress();
+            const parsedLogs = (txReceipt?.logs || []).map((log) => {
+              return raffle.interface.parseLog({
+                topics: [...log?.topics] || [],
+                data: log?.data || '',
+              });
+            });
+            const requestId: bigint = parsedLogs[1]?.args[0] || BigInt(0);
+            console.log('requestId', requestId);
+            // const winnerStartingBalance = await accounts[1].toJSON();
+            const fullfillTxnResponse = await vrfCoordinatorV2Mock.fulfillRandomWords(requestId, raffleAddress);
+            const fullfillTxnReceipt = await fullfillTxnResponse.wait(1);
+            const fulfillParsedLogs = (fullfillTxnReceipt?.logs || []).map(log => {
+              return raffle.interface.parseLog({
+                topics: [...log?.topics] || [],
+                data: log?.data || '',
+              });
+            });
+            console.log('fulfillParsedLogs', fulfillParsedLogs.length, fulfillParsedLogs);
+          });
+        });
+      });
     });
