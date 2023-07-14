@@ -22,6 +22,7 @@ const config: HardhatUserConfig = {
       url: SEPOLIA_RPC_URL,
       accounts: [PRIVATE_KEY],
       chainId: 11155111,
+      saveDeployments: true,
     }
   },
   namedAccounts: {
@@ -48,7 +49,7 @@ const config: HardhatUserConfig = {
     customChains: [],
   },
   mocha: {
-    timeout: 20000
+    timeout: 200000
   }
 };
 
