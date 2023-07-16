@@ -2,22 +2,30 @@ import { deployments, ethers, getNamedAccounts, network } from 'hardhat';
 import { developmentChains, networkConfig } from '../../helper-hardhat-config';
 import { Raffle, VRFCoordinatorV2Mock } from '../../typechain-types';
 import { assert, expect } from 'chai';
+import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 
 !developmentChains.includes(network.name)
   ? describe.skip
   : describe('Raffle Unit Tests', async () => {
       let raffle: Raffle;
+      let raffleContract: Raffle;
       let vrfCoordinatorV2Mock: VRFCoordinatorV2Mock;
       let raffleEntranceFee: bigint;
       let deployer: string;
       let interval: bigint;
       const chainId = network.config.chainId || 0;
+      let accounts: SignerWithAddress[];
+      let player: SignerWithAddress;
 
       beforeEach(async () => {
         const deploymentResults = await deployments.fixture(['all']);
 
         const raffleContractAddress = deploymentResults['Raffle']?.address;
-        raffle = await ethers.getContractAt('Raffle', raffleContractAddress);
+        raffleContract = await ethers.getContractAt('Raffle', raffleContractAddress);
+
+        accounts = await ethers.getSigners();
+        player = accounts[0];
+        raffle = raffleContract.connect(player);
 
         const vrfCoordinatorAddress =
           deploymentResults['VRFCoordinatorV2Mock']?.address;
@@ -174,7 +182,7 @@ import { assert, expect } from 'chai';
 
         //   await new Promise<void>(async (resolve, reject) => {
         //     const winnerEvent = raffle.getEvent("WinnerPicked");
-        //     await raffle.once(winnerEvent, async () => {
+        //     await raffle.once<typeof winnerEvent>(winnerEvent, async () => {
         //       console.log('found the event');
         //       try {
         //         const raffleState = await raffle.getRaffleState();
